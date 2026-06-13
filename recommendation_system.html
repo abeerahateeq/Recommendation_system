@@ -1,0 +1,117 @@
+
+<style>
+  .tag { display: inline-block; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-secondary); transition: all 0.15s; margin: 4px; user-select: none; }
+  .tag.selected { background: #185FA5; border-color: #185FA5; color: #E6F1FB; }
+  .tag:hover:not(.selected) { background: var(--color-background-secondary); }
+  .rec-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; display: flex; align-items: flex-start; gap: 12px; }
+  .score-bar-bg { height: 4px; background: var(--color-background-secondary); border-radius: 2px; flex: 1; margin-top: 6px; }
+  .score-bar { height: 4px; border-radius: 2px; background: #185FA5; transition: width 0.4s ease; }
+  .match-badge { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 10px; }
+  .section-label { font-size: 12px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; margin: 1.5rem 0 0.5rem; }
+</style>
+
+<h2 class="sr-only">Recommendation system — pick your interests and get matched items</h2>
+
+<p style="font-size: 15px; color: var(--color-text-secondary); margin: 0 0 0.25rem;">Pick your interests</p>
+<p style="font-size: 13px; color: var(--color-text-tertiary); margin: 0 0 1rem;">Select one or more to get personalized recommendations</p>
+
+<div id="tag-container"></div>
+
+<div class="section-label">Category</div>
+<select id="category-select" style="width: 100%; margin-bottom: 1rem;">
+  <option value="all">All categories</option>
+  <option value="books">Books</option>
+  <option value="movies">Movies</option>
+  <option value="courses">Courses</option>
+</select>
+
+<div id="results-area"></div>
+
+<script>
+const interests = ["Science", "Technology", "History", "Art", "Fiction", "Mystery", "Adventure", "Philosophy", "Design", "Psychology", "Space", "Nature"];
+
+const items = [
+  { title: "The Martian", type: "movies", tags: ["Science","Adventure","Technology","Space"], desc: "Astronaut stranded on Mars uses science to survive.", icon: "ti-rocket" },
+  { title: "Interstellar", type: "movies", tags: ["Science","Space","Philosophy","Adventure"], desc: "A crew travels through a wormhole near Saturn.", icon: "ti-universe" },
+  { title: "Arrival", type: "movies", tags: ["Science","Philosophy","Mystery","Psychology"], desc: "A linguist works to communicate with alien life.", icon: "ti-alien" },
+  { title: "The Da Vinci Code", type: "books", tags: ["Mystery","History","Art","Adventure"], desc: "A symbologist uncovers a religious conspiracy.", icon: "ti-book" },
+  { title: "Sapiens", type: "books", tags: ["History","Philosophy","Science","Psychology"], desc: "A brief history of humankind across 70,000 years.", icon: "ti-book-2" },
+  { title: "Thinking, Fast and Slow", type: "books", tags: ["Psychology","Philosophy","Science"], desc: "Explores the two systems that drive human thinking.", icon: "ti-brain" },
+  { title: "Deep Learning Fundamentals", type: "courses", tags: ["Technology","Science","Design"], desc: "Hands-on intro to neural networks and AI.", icon: "ti-cpu" },
+  { title: "UX Design Principles", type: "courses", tags: ["Design","Psychology","Technology","Art"], desc: "Learn to design for people, not screens.", icon: "ti-layout" },
+  { title: "The Art of War", type: "books", tags: ["History","Philosophy","Psychology"], desc: "Ancient Chinese military treatise on strategy.", icon: "ti-sword" },
+  { title: "Planet Earth II", type: "movies", tags: ["Nature","Science","Adventure"], desc: "Wildlife documentary series narrated by Attenborough.", icon: "ti-leaf" },
+  { title: "Cosmos", type: "movies", tags: ["Space","Science","Philosophy","History"], desc: "A journey through the universe with Neil deGrasse Tyson.", icon: "ti-stars" },
+  { title: "Data Science Bootcamp", type: "courses", tags: ["Technology","Science","Psychology"], desc: "From data wrangling to machine learning models.", icon: "ti-chart-bar" },
+];
+
+let selected = new Set();
+
+const tagContainer = document.getElementById("tag-container");
+const resultsArea = document.getElementById("results-area");
+const categorySelect = document.getElementById("category-select");
+
+interests.forEach(tag => {
+  const el = document.createElement("span");
+  el.className = "tag";
+  el.textContent = tag;
+  el.onclick = () => {
+    if (selected.has(tag)) { selected.delete(tag); el.classList.remove("selected"); }
+    else { selected.add(tag); el.classList.add("selected"); }
+    renderResults();
+  };
+  tagContainer.appendChild(el);
+});
+
+categorySelect.onchange = renderResults;
+
+function renderResults() {
+  const cat = categorySelect.value;
+  if (selected.size === 0) {
+    resultsArea.innerHTML = `<p style="color: var(--color-text-tertiary); font-size: 14px; text-align: center; padding: 2rem 0;">Select at least one interest above to see recommendations.</p>`;
+    return;
+  }
+
+  const sel = [...selected];
+  const scored = items
+    .filter(i => cat === "all" || i.type === cat)
+    .map(item => {
+      const matches = item.tags.filter(t => sel.includes(t));
+      const score = Math.round((matches.length / Math.max(sel.length, item.tags.length)) * 100);
+      return { ...item, score, matches };
+    })
+    .filter(i => i.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+
+  if (scored.length === 0) {
+    resultsArea.innerHTML = `<p style="color: var(--color-text-tertiary); font-size: 14px; text-align: center; padding: 2rem 0;">No matches found. Try different interests or category.</p>`;
+    return;
+  }
+
+  const typeLabel = { books: "Book", movies: "Movie / Show", courses: "Course" };
+  const typeColor = { books: "#3B6D11", movies: "#185FA5", courses: "#993C1D" };
+  const typeBg = { books: "#EAF3DE", movies: "#E6F1FB", courses: "#FAECE7" };
+
+  resultsArea.innerHTML = `<div class="section-label">Top matches (${scored.length})</div>` + scored.map((item, idx) => `
+    <div class="rec-card" style="margin-bottom: 10px; ${idx === 0 ? 'border: 1.5px solid #185FA5;' : ''}">
+      <div style="font-size: 22px; color: var(--color-text-tertiary); margin-top: 2px;"><i class="ti ${item.icon}" aria-hidden="true"></i></div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
+          <span style="font-size: 15px; font-weight: 500; color: var(--color-text-primary);">${item.title}</span>
+          ${idx === 0 ? '<span style="font-size: 11px; background: #E6F1FB; color: #0C447C; padding: 2px 8px; border-radius: 10px;">Best match</span>' : ''}
+          <span style="font-size: 11px; background: ${typeBg[item.type]}; color: ${typeColor[item.type]}; padding: 2px 8px; border-radius: 10px;">${typeLabel[item.type]}</span>
+        </div>
+        <p style="font-size: 13px; color: var(--color-text-secondary); margin: 0 0 8px;">${item.desc}</p>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 12px; color: var(--color-text-tertiary);">${item.score}% match</span>
+          <div class="score-bar-bg"><div class="score-bar" style="width: ${item.score}%;"></div></div>
+        </div>
+        <div style="margin-top: 6px;">${item.matches.map(m => `<span style="font-size: 11px; background: var(--color-background-secondary); color: var(--color-text-secondary); padding: 2px 8px; border-radius: 10px; margin-right: 4px; display: inline-block;">${m}</span>`).join("")}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+renderResults();
+</script>
